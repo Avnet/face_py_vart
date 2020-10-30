@@ -26,8 +26,19 @@ import os, errno
 
 from imutils.video import FPS
 
-import runner
 from vitis_ai_vart.facedetect import FaceDetect
+import runner
+import xir.graph
+import pathlib
+import xir.subgraph
+
+def get_subgraph (g):
+  sub = []
+  root = g.get_root_subgraph()
+  sub = [ s for s in root.children
+          if s.metadata.get_attr_str ("device") == "DPU"]
+  return sub
+
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -58,8 +69,12 @@ else:
 print('[INFO] face detector - NMS threshold = ',nmsThreshold)
 
 # Initialize Vitis-AI/DPU based face detector
-dpu = runner.Runner("/usr/share/vitis_ai_library/models/densebox_640_360")[0]
-dpu_face_detector = FaceDetect(dpu,detThreshold,nmsThreshold)
+densebox_elf = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.elf"
+densebox_graph = xir.graph.Graph.deserialize(pathlib.Path(densebox_elf))
+densebox_subgraphs = get_subgraph(densebox_graph)
+assert len(densebox_subgraphs) == 1 # only one DPU kernel
+densebox_dpu = runner.Runner(densebox_subgraphs[0],"run")
+dpu_face_detector = FaceDetect(densebox_dpu,detThreshold,nmsThreshold)
 dpu_face_detector.start()
 
 # Initialize the camera input
@@ -108,7 +123,7 @@ print("[INFO] elapsed FPS: {:.2f}".format(fps.fps()))
 
 # Stop the face detector
 dpu_face_detector.stop()
-del dpu
+del densebox_dpu
 
 # Cleanup
 cv2.destroyAllWindows()

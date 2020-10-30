@@ -23,10 +23,20 @@ import time
 import sys
 import numpy as np
 from numpy import float32
-
-import runner
 import math
 
+import runner
+#import xir.graph
+#import pathlib
+#import xir.subgraph
+#
+#def get_subgraph (g):
+#  sub = []
+#  root = g.get_root_subgraph()
+#  sub = [ s for s in root.children
+#          if s.metadata.get_attr_str ("device") == "DPU"]
+#  return sub
+  
 def time_it(msg,start,end):
     print("[INFO] {} took {:.8} seconds".format(msg,end-start))
 
@@ -100,7 +110,16 @@ def softmax_2(data):
 
 
 class FaceDetect():
+#  def __init__(self, dpu_elf, detThreshold=0.55, nmsThreshold=0.35):
+#    #"""Create Runner"""
+#    g = xir.graph.Graph.deserialize(pathlib.Path(dpu_elf))
+#    subgraphs = get_subgraph (g)
+#    assert len(subgraphs) == 1 # only one DPU kernel
+#    print("[INFO] facedetect dpu_elf=",dpu_elf)
+#    dpu = runner.Runner(subgraphs[0],"run")
+	  
   def __init__(self, dpu, detThreshold=0.55, nmsThreshold=0.35):
+
     self.dpu = dpu
 
     self.detThreshold = detThreshold
@@ -108,7 +127,6 @@ class FaceDetect():
 
     self.inputTensors = []
     self.outputTensors = []
-    self.tensorFormat = []
     self.inputChannels = []
     self.inputHeight = []
     self.inputWidth = []
@@ -125,43 +143,29 @@ class FaceDetect():
     self.output1Shape = []
 
   def start(self):
-    #"""Create Runner"""
-    #dpu = runner.Runner("/usr/share/vitis_ai_library/models/densebox_640_360")[0]
+
     dpu = self.dpu
+    #print("[INFO] facedetect runner=",dpu)
 
     inputTensors = dpu.get_input_tensors()
     #print("[INFO] inputTensors=",inputTensors)
     outputTensors = dpu.get_output_tensors()
     #print("[INFO] outputTensors=",outputTensors)
-    tensorFormat = dpu.get_tensor_format()
-    if tensorFormat == dpu.TensorFormat.NCHW:
-        inputChannels = inputTensors[0].dims[1]
-        inputHeight = inputTensors[0].dims[2]
-        inputWidth = inputTensors[0].dims[3]
-        #print(*"[INFO] input tensor : format=NCHW, Channels=",inputChannels," Height=",inputHeight," Width=",inputWidth)
-        output0Channels = outputTensors[0].dims[1]
-        output0Height = outputTensors[0].dims[2]
-        output0Width = outputTensors[0].dims[3]
-        #print("[INFO] output[0] tensor : format=NCHW, Channels=",output0Channels," Height=",output0Height," Width=",output0Width)
-        output1Channels = outputTensors[1].dims[1]
-        output1Height = outputTensors[1].dims[2]
-        output1Width = outputTensors[1].dims[3]
-        #print("[INFO] output[1] tensor : format=NCHW, Channels=",output1Channels," Height=",output1Height," Width=",output1Width)
-    elif tensorFormat == dpu.TensorFormat.NHWC:
-        inputHeight = inputTensors[0].dims[1]
-        inputWidth = inputTensors[0].dims[2]
-        inputChannels = inputTensors[0].dims[3]
-        #print("[INFO] input tensor : format=NHWC, Height=",inputHeight," Width=",inputWidth,", Channels=", inputChannels)
-        output0Height = outputTensors[0].dims[1]
-        output0Width = outputTensors[0].dims[2]
-        output0Channels = outputTensors[0].dims[3]
-        #print("[INFO] output[0] tensor : format=NHWC, height=",output0Height," width=",output0Width,", channels=",output0Channels)
-        output1Height = outputTensors[1].dims[1]
-        output1Width = outputTensors[1].dims[2]
-        output1Channels = outputTensors[1].dims[3]
-        #print("[INFO] output[1] tensor : format=NHWC, height=",output1Height," width=",output1Width,", channels=",output1Channels)
-    else:
-        exit("[ERROR] DPU Runner Format Error")
+    
+    inputHeight = inputTensors[0].dims[1]
+    inputWidth = inputTensors[0].dims[2]
+    inputChannels = inputTensors[0].dims[3]
+    #print("[INFO] input tensor : format=NHWC, Height=",inputHeight," Width=",inputWidth,", Channels=", inputChannels)
+    
+    output0Height = outputTensors[0].dims[1]
+    output0Width = outputTensors[0].dims[2]
+    output0Channels = outputTensors[0].dims[3]
+    #print("[INFO] output[0] tensor : format=NHWC, height=",output0Height," width=",output0Width,", channels=",output0Channels)
+    output1Height = outputTensors[1].dims[1]
+    output1Width = outputTensors[1].dims[2]
+    output1Channels = outputTensors[1].dims[3]
+    #print("[INFO] output[1] tensor : format=NHWC, height=",output1Height," width=",output1Width,", channels=",output1Channels)
+
     output0Size = output0Height*output0Width*output0Channels
     output1Size = output1Height*output1Width*output1Channels
 
@@ -172,11 +176,8 @@ class FaceDetect():
     output1Shape = (1,output1Height,output1Width,output1Channels)
     #print("[INFO] output1Shape=",output1Shape)
 
-
-    self.dpu = dpu
     self.inputTensors = inputTensors
     self.outputTensors = outputTensors
-    self.tensorFormat = tensorFormat
     self.inputChannels = inputChannels
     self.inputHeight = inputHeight
     self.inputWidth = inputWidth
@@ -193,7 +194,11 @@ class FaceDetect():
     self.output1Shape = output1Shape
 
   def process(self,img):
+    #print("[INFO] facefeature process")
+
     dpu = self.dpu
+    #print("[INFO] facefeature runner=",dpu)
+
     inputChannels = self.inputChannels
     inputHeight = self.inputHeight
     inputWidth = self.inputWidth
@@ -215,26 +220,32 @@ class FaceDetect():
     scale_w = imgWidth / inputWidth
     
     """ Image pre-processing """
+    #print("[INFO] process - pre-processing - normalize ")
     # normalize
     img = img - 128.0
+    #print("[INFO] process - pre-processing - resize ")
     # resize
     img = cv2.resize(img,(inputWidth,inputHeight))
 
     """ Prepare input/output buffers """
+    #print("[INFO] process - prep input buffer ")
     inputData = []
     inputData.append(np.empty((inputShape),dtype=np.float32,order='C'))
     inputImage = inputData[0]
     inputImage[0,...] = img
 
+    #print("[INFO] process - prep output buffer ")
     outputData = []
     outputData.append(np.empty((output0Shape),dtype=np.float32,order='C'))
     outputData.append(np.empty((output1Shape),dtype=np.float32,order='C'))
 
     """ Execute model on DPU """
+    #print("[INFO] process - execute ")
     job_id = dpu.execute_async( inputData, outputData )
     dpu.wait(job_id)
 
     """ Retrieve output results """    
+    #print("[INFO] process - get outputs ")
     OutputData0 = outputData[0].reshape(1,output0Size)
     bboxes = np.reshape( OutputData0, (-1, 4) )
     #
@@ -281,7 +292,7 @@ class FaceDetect():
 
   def stop(self):
     #"""Destroy Runner"""
-    #del self.dpu
+    del self.dpu
 	
     self.dpu = []
     self.inputTensors = []

@@ -30,8 +30,19 @@ import queue
 from imutils.video import FPS
 from pyimagesearch.centroidtracker import CentroidTracker
 
-import runner
+
 from vitis_ai_vart.facedetect import FaceDetect
+import runner
+import xir.graph
+import pathlib
+import xir.subgraph
+
+def get_subgraph (g):
+  sub = []
+  root = g.get_root_subgraph()
+  sub = [ s for s in root.children
+          if s.metadata.get_attr_str ("device") == "DPU"]
+  return sub
 
 global bQuit
 
@@ -194,7 +205,13 @@ def main(argv):
     print('[INFO] number of worker threads = ', threads )
 
     # Initialize VART API
-    dpu = runner.Runner("/usr/share/vitis_ai_library/models/densebox_640_360")[0]
+    densebox_elf = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.elf"
+    densebox_graph = xir.graph.Graph.deserialize(pathlib.Path(densebox_elf))
+    densebox_subgraphs = get_subgraph(densebox_graph)
+    assert len(densebox_subgraphs) == 1 # only one DPU kernel
+    all_dpu_runners = [];
+    for i in range(int(threads)):
+        all_dpu_runners.append(runner.Runner(densebox_subgraphs[0], "run"));
 
     # Initialize our centroid tracker and frame dimensions
     ct = CentroidTracker()
@@ -208,7 +225,7 @@ def main(argv):
     tc = threading.Thread(target=taskCapture, args=(inputId,queueIn))
     threadAll.append(tc)
     for i in range(threads):
-        tw = threading.Thread(target=taskWorker, args=(i,dpu,detThreshold,nmsThreshold,ct,queueIn,queueOut))
+        tw = threading.Thread(target=taskWorker, args=(i,all_dpu_runners[i],detThreshold,nmsThreshold,ct,queueIn,queueOut))
         threadAll.append(tw)
     td = threading.Thread(target=taskDisplay, args=(queueOut,))
     threadAll.append(td)
