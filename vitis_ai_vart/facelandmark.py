@@ -25,30 +25,21 @@ import numpy as np
 from numpy import float32
 import math
 
-import runner
-#import xir.graph
-#import pathlib
-#import xir.subgraph
-#
-#def get_subgraph (g):
-#  sub = []
-#  root = g.get_root_subgraph()
-#  sub = [ s for s in root.children
-#          if s.metadata.get_attr_str ("device") == "DPU"]
-#  return sub
+import vart
+#from utils import get_child_subgraph_dpu
   
 def time_it(msg,start,end):
     print("[INFO] {} took {:.8} seconds".format(msg,end-start))
 
 
 class FaceLandmark():
-#  def __init__(self, dpu_elf):
+#  def __init__(self, dpu_xmodel):
 #    #"""Create Runner"""
-#    g = xir.graph.Graph.deserialize(pathlib.Path(dpu_elf))
-#    subgraphs = get_subgraph (g)
-#    assert len(subgraphs) == 1 # only one DPU kernel
-#    print("[INFO] facedetect dpu_elf=",dpu_elf)
-#    dpu = runner.Runner(subgraphs[0],"run")
+#    dpu_graph = xir.Graph.deserialize(dpu_xmodel)
+#    dpu_subgraphs = get_child_subgraph_dpu(dpu_graph)
+#    assert len(dpu_subgraphs) == 1 # only one DPU kernel
+#    print("[INFO] FaceLandmark dpu_xmodel=",dpu_xmodel)
+#    dpu = vart.Runner.create_runner(dpu_subgraphs[0],"run")
 
   def __init__(self, dpu):
 
@@ -60,9 +51,6 @@ class FaceLandmark():
     self.inputHeight = []
     self.inputWidth = []
     self.inputShape = []
-    self.outputChannels = []
-    self.outputHeight = []
-    self.outputWidth = []
     self.outputSize = []
     self.outputShape = []
 
@@ -74,23 +62,20 @@ class FaceLandmark():
     inputTensors = dpu.get_input_tensors()
     #print("[INFO] inputTensors=",inputTensors)
     outputTensors = dpu.get_output_tensors()
-    #print("[INFO] outputTensors=",inputTensors)
+    #print("[INFO] outputTensors=",outputTensors)
     
     inputHeight = inputTensors[0].dims[1]
     inputWidth = inputTensors[0].dims[2]
     inputChannels = inputTensors[0].dims[3]
     #print("[INFO] input tensor : format=NHWC, Height=",inputHeight," Width=",inputWidth,", Channels=", inputChannels)
     
-    outputHeight = outputTensors[0].dims[1]
-    outputWidth = outputTensors[0].dims[2]
-    outputChannels = outputTensors[0].dims[3]
-    #print("[INFO] output[0] tensor : format=NHWC, height=",outputHeight," width=",outputWidth,", channels=",outputChannels)
-
-    outputSize = outputHeight*outputWidth*outputChannels
+    print("[INFO] outputTensors[0]=",outputTensors[0])
+    outputSize = outputTensors[0].dims[1]
+    print("[INFO] output[0] tensor : size=",outputSize)
 
     inputShape = (1,inputHeight,inputWidth,inputChannels)
     #print("[INFO] inputShape=",inputShape)
-    outputShape = (1,outputHeight,outputWidth,outputChannels)
+    outputShape = (1,outputSize)
     #print("[INFO] outputShape=",outputShape)
 
     self.inputTensors = inputTensors
@@ -99,9 +84,6 @@ class FaceLandmark():
     self.inputHeight = inputHeight
     self.inputWidth = inputWidth
     self.inputShape = inputShape
-    self.outputChannels = outputChannels
-    self.outputHeight = outputHeight
-    self.outputWidth = outputWidth
     self.outputSize = outputSize
     self.outputShape = outputShape
 
@@ -115,9 +97,6 @@ class FaceLandmark():
     inputHeight = self.inputHeight
     inputWidth = self.inputWidth
     inputShape = self.inputShape
-    outputChannels = self.outputChannels
-    outputHeight = self.outputHeight
-    outputWidth = self.outputWidth
     outputSize = self.outputSize
     outputShape = self.outputShape
 
@@ -173,9 +152,6 @@ class FaceLandmark():
     self.inputHeight = []
     self.inputWidth = []
     self.inputShape = []
-    self.outputChannels = []
-    self.outputHeight = []
-    self.outputWidth = []
     self.outputSize = []
     self.outputShape = []
 

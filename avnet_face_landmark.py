@@ -17,28 +17,25 @@ limitations under the License.
 # USAGE
 # python avnet_face_landmark.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35]
 
-import numpy as np
-import argparse
-import imutils
-import time
+from ctypes import *
+from typing import List
 import cv2
-import os, errno
+import numpy as np
+import vart
+import pathlib
+import xir
+import os
+import math
+import threading
+import time
+import sys
+import argparse
 
 from imutils.video import FPS
 
 from vitis_ai_vart.facedetect import FaceDetect
 from vitis_ai_vart.facelandmark import FaceLandmark
-import runner
-import xir.graph
-import pathlib
-import xir.subgraph
-
-def get_subgraph (g):
-  sub = []
-  root = g.get_root_subgraph()
-  sub = [ s for s in root.children
-          if s.metadata.get_attr_str ("device") == "DPU"]
-  return sub
+from vitis_ai_vart.utils import get_child_subgraph_dpu
 
 
 # construct the argument parse and parse the arguments
@@ -70,20 +67,20 @@ else:
 print('[INFO] face detector - NMS threshold = ',nmsThreshold)
 
 # Initialize Vitis-AI/DPU based face detector
-densebox_elf = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.elf"
-densebox_graph = xir.graph.Graph.deserialize(pathlib.Path(densebox_elf))
-densebox_subgraphs = get_subgraph(densebox_graph)
+densebox_xmodel = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.xmodel"
+densebox_graph = xir.Graph.deserialize(densebox_xmodel)
+densebox_subgraphs = get_child_subgraph_dpu(densebox_graph)
 assert len(densebox_subgraphs) == 1 # only one DPU kernel
-densebox_dpu = runner.Runner(densebox_subgraphs[0],"run")
+densebox_dpu = vart.Runner.create_runner(densebox_subgraphs[0],"run")
 dpu_face_detector = FaceDetect(densebox_dpu,detThreshold,nmsThreshold)
 dpu_face_detector.start()
 
 # Initialize Vitis-AI/DPU based face landmark
-landmark_elf = "/usr/share/vitis_ai_library/models/face_landmark/face_landmark.elf"
-landmark_graph = xir.graph.Graph.deserialize(pathlib.Path(landmark_elf))
-landmark_subgraphs = get_subgraph(landmark_graph)
+landmark_xmodel = "/usr/share/vitis_ai_library/models/face_landmark/face_landmark.xmodel"
+landmark_graph = xir.Graph.deserialize(landmark_xmodel)
+landmark_subgraphs = get_child_subgraph_dpu(landmark_graph)
 assert len(landmark_subgraphs) == 1 # only one DPU kernel
-landmark_dpu = runner.Runner(landmark_subgraphs[0],"run")
+landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
 dpu_face_landmark = FaceLandmark(landmark_dpu)
 dpu_face_landmark.start()
 
@@ -155,4 +152,4 @@ dpu_face_landmark.stop()
 del landmark_dpu
 
 # Cleanup
-CV2.DEstroyAllWindows()
+cv2.destroyAllWindows()

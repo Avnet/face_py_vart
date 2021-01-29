@@ -17,30 +17,26 @@ limitations under the License.
 # USAGE
 # python avnet_face_detection_mt.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35] [--threads 4]
 
-import numpy as np
-import argparse
-import imutils
-import time
+from ctypes import *
+from typing import List
 import cv2
-import os, errno
-import sys
+import numpy as np
+import vart
+import pathlib
+import xir
+import os
+import math
 import threading
+import time
+import sys
+import argparse
 import queue
 
 from imutils.video import FPS
 
 from vitis_ai_vart.facedetect import FaceDetect
-import runner
-import xir.graph
-import pathlib
-import xir.subgraph
+from vitis_ai_vart.utils import get_child_subgraph_dpu
 
-def get_subgraph (g):
-  sub = []
-  root = g.get_root_subgraph()
-  sub = [ s for s in root.children
-          if s.metadata.get_attr_str ("device") == "DPU"]
-  return sub
 
 global bQuit
 
@@ -197,14 +193,14 @@ def main(argv):
         threads = int(args["threads"])
     print('[INFO] number of worker threads = ', threads )
 
-    # Initialize VART API
-    densebox_elf = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.elf"
-    densebox_graph = xir.graph.Graph.deserialize(pathlib.Path(densebox_elf))
-    densebox_subgraphs = get_subgraph(densebox_graph)
+    # Initialize Vitis-AI/DPU based face detector
+    densebox_xmodel = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.xmodel"
+    densebox_graph = xir.Graph.deserialize(densebox_xmodel)
+    densebox_subgraphs = get_child_subgraph_dpu(densebox_graph)
     assert len(densebox_subgraphs) == 1 # only one DPU kernel
     all_dpu_runners = [];
     for i in range(int(threads)):
-        all_dpu_runners.append(runner.Runner(densebox_subgraphs[0], "run"));
+        all_dpu_runners.append(vart.Runner.create_runner(densebox_subgraphs[0], "run"));
 
     # Init synchronous queues for inter-thread communication
     queueIn = queue.Queue()

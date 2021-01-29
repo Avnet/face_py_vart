@@ -25,17 +25,8 @@ import numpy as np
 from numpy import float32
 import math
 
-import runner
-#import xir.graph
-#import pathlib
-#import xir.subgraph
-#
-#def get_subgraph (g):
-#  sub = []
-#  root = g.get_root_subgraph()
-#  sub = [ s for s in root.children
-#          if s.metadata.get_attr_str ("device") == "DPU"]
-#  return sub
+import vart
+#from utils import get_child_subgraph_dpu
   
 def time_it(msg,start,end):
     print("[INFO] {} took {:.8} seconds".format(msg,end-start))
@@ -110,13 +101,13 @@ def softmax_2(data):
 
 
 class FaceDetect():
-#  def __init__(self, dpu_elf, detThreshold=0.55, nmsThreshold=0.35):
+#  def __init__(self, dpu_xmodel, detThreshold=0.55, nmsThreshold=0.35):
 #    #"""Create Runner"""
-#    g = xir.graph.Graph.deserialize(pathlib.Path(dpu_elf))
-#    subgraphs = get_subgraph (g)
-#    assert len(subgraphs) == 1 # only one DPU kernel
-#    print("[INFO] facedetect dpu_elf=",dpu_elf)
-#    dpu = runner.Runner(subgraphs[0],"run")
+#    dpu_graph = xir.Graph.deserialize(dpu_xmodel)
+#    dpu_subgraphs = get_child_subgraph_dpu(dpu_graph)
+#    assert len(dpu_subgraphs) == 1 # only one DPU kernel
+#    print("[INFO] FaceDetect dpu_xmodel=",dpu_xmodel)
+#    dpu = vart.Runner.create_runner(dpu_subgraphs[0],"run")
 	  
   def __init__(self, dpu, detThreshold=0.55, nmsThreshold=0.35):
 
@@ -152,11 +143,13 @@ class FaceDetect():
     outputTensors = dpu.get_output_tensors()
     #print("[INFO] outputTensors=",outputTensors)
     
+    #print("[INFO] inputTensors[0]=",inputTensors[0])
     inputHeight = inputTensors[0].dims[1]
     inputWidth = inputTensors[0].dims[2]
     inputChannels = inputTensors[0].dims[3]
     #print("[INFO] input tensor : format=NHWC, Height=",inputHeight," Width=",inputWidth,", Channels=", inputChannels)
     
+    #print("[INFO] outputTensors[0]=",outputTensors[0])
     output0Height = outputTensors[0].dims[1]
     output0Width = outputTensors[0].dims[2]
     output0Channels = outputTensors[0].dims[3]
